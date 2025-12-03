@@ -1,0 +1,43 @@
+# This .gitignore is appropriate for repositories deployed to GitHub Pages and using
+# a Gemfile as specified at https://github.com/github/pages-gem#conventional
+
+# Basic Jekyll gitignores (synchronize to Jekyll.gitignore)
+_site/
+.sass-cache/
+.jekyll-cache/
+.jekyll-metadata
+
+# Additional Ruby/bundler ignore for when you run: bundle install
+/vendor
+
+# Specific ignore for GitHub Pages
+# GitHub Pages will always use its own deployed version of pages-gem 
+# This means GitHub Pages will NOT use your Gemfile.lock and therefore it is
+# counterproductive to check this file into the repository.
+# Details at https://github.com/github/pages-gem/issues/768
+Gemfile.lock
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+=======
+
+>>>>>>> f6b770f (añadiendo .gitinore)
+
+# archivos que no se incluye
+Creacion-flujo-telegram.md
+# carpeta para evitar guardar
+config-n8n/
+docs/
+api-key/
+apikey/
+
+<<<<<<< HEAD
+# cambios aplicados.
+>>>>>>> 9e47da3 (actualizacion datos)
+>>>>>>> 479ca33 (primer commit)
+=======
+>>>>>>> f6b770f (añadiendo .gitinore)

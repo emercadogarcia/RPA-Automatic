@@ -1,0 +1,297 @@
+{
+  "name": "ETL_Correo_Gastos_MySQL",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "options": {
+          "includeAttachments": true
+        },
+        "sendAllNewEmails": true,
+        "filters": {
+          "options": {
+            "subject": "Datos Contables"
+          }
+        }
+      },
+      "id": "1",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "your-gmail-cred-id",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const attachments = $input.first().json.attachments || [];\nif (attachments.length === 0) {\n  throw new Error('No hay adjuntos en el email');\n}\nconst csvAttachment = attachments.find(att => att.mimeType === 'text/csv' || att.filename.endsWith('.csv'));\nif (!csvAttachment) {\n  throw new Error('Adjunto no es CSV válido');\n}\n// Renombrar binary data para siguiente nodo\nreturn [{ json: { filename: csvAttachment.filename, data: $input.first().binary[csvAttachment.id] } }];"
+      },
+      "id": "2",
+      "name": "Filtrar y Preparar Adjunto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fileFormat": "csv",
+        "binaryPropertyName": "data",
+        "options": {
+          "headerRow": true,
+          "delimiter": ","
+        }
+      },
+      "id": "3",
+      "name": "Leer CSV",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 5,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.first().json;\nconst dataRows = rows.slice(1); // Excluye header si existe\nif (dataRows.length === 0) {\n  throw new Error('El archivo no contiene datos válidos');\n}\n// Opcional: Validar campos requeridos\nconst invalidRows = dataRows.filter(row => !row.monto || isNaN(row.monto));\nif (invalidRows.length > 0) {\n  throw new Error(`Filas inválidas: ${invalidRows.length}`);\n}\nreturn [{ json: { rows: dataRows, total: dataRows.length } }];"
+      },
+      "id": "4",
+      "name": "Validar Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.first().json.rows;\nconst transformed = rows.map(row => ({\n  asiento_id: row['Asiento'] || 'DEFAULT', // Mapeo ejemplo\n  fecha: new Date().toISOString().split('T')[0], // Si no hay fecha, usa hoy\n  concepto: row['Concepto'],\n  monto: parseFloat(row['Monto']),\n  cuenta: row['Cuenta Contable']\n}));\nreturn [{ json: { rows: transformed } }];"
+      },
+      "id": "5",
+      "name": "Transformar Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO gastos (asiento_id, fecha, concepto, monto, cuenta) \nVALUES {{ $json.rows.map(r => `('${r.asiento_id}', '${r.fecha}', '${r.concepto}', ${r.monto}, '${r.cuenta}')`).join(',') }} \nON DUPLICATE KEY UPDATE monto = VALUES(monto);"
+      },
+      "id": "6",
+      "name": "Insertar en MySQL",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.3,
+      "position": [
+        1340,
+        300
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "your-mysql-cred-id",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "log",
+              "value": "={{ $now }} - Cargados {{ $('Insertar en MySQL').item.json.affectedRows || 0 }} registros de {{ $('Filtrar y Preparar Adjunto').item.json.filename }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7",
+      "name": "Auditoría Exitosa",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "tu-email@ejemplo.com",
+        "toEmail": "tu-email@ejemplo.com",
+        "subject": "=ETL Exitoso: {{ $('Filtrar y Preparar Adjunto').item.json.filename }}",
+        "text": "=Log de auditoría: {{ $json.log }}",
+        "options": {}
+      },
+      "id": "8",
+      "name": "Notificar Éxito",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "your-gmail-cred-id",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const error = $error;\nconst filename = $('Filtrar y Preparar Adjunto').item ? $('Filtrar y Preparar Adjunto').item.json.filename : 'Desconocido';\nreturn [{ json: { errorMessage: error.message, filename: filename } }];"
+      },
+      "id": "9",
+      "name": "Extraer Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "tu-email@ejemplo.com",
+        "toEmail": "admin@ejemplo.com",
+        "subject": "=Error en ETL: {{ $json.filename }}",
+        "text": "=Error: {{ $json.errorMessage }}. Archivo: {{ $json.filename }}",
+        "options": {}
+      },
+      "id": "10",
+      "name": "Notificar Fallo",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        680,
+        500
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "your-gmail-cred-id",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filtrar y Preparar Adjunto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar y Preparar Adjunto": {
+      "main": [
+        [
+          {
+            "node": "Leer CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer CSV": {
+      "main": [
+        [
+          {
+            "node": "Validar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Datos": {
+      "main": [
+        [
+          {
+            "node": "Transformar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transformar Datos": {
+      "main": [
+        [
+          {
+            "node": "Insertar en MySQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insertar en MySQL": {
+      "main": [
+        [
+          {
+            "node": "Auditoría Exitosa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auditoría Exitosa": {
+      "main": [
+        [
+          {
+            "node": "Notificar Éxito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Error": {
+      "main": [
+        [
+          {
+            "node": "Notificar Fallo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-09-18T00:00:00.000Z",
+  "versionId": 1,
+  "active": false
+}

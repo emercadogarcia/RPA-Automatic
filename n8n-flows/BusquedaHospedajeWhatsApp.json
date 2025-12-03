@@ -1,0 +1,249 @@
+{
+    "name": "BusquedaHospedajeWhatsApp",
+    "nodes": [
+        {
+            "id": "1",
+            "name": "CONVERTIR",
+            "type": "function",
+            "position": [
+                200,
+                200
+            ],
+            "parameters": {
+                "functionCode": "return [{ json: { message: $json[\"body\"] } }];"
+            }
+        },
+        {
+            "id": "2",
+            "name": "CODE",
+            "type": "function",
+            "position": [
+                400,
+                200
+            ],
+            "parameters": {
+                "functionCode": "return items;"
+            }
+        },
+        {
+            "id": "3",
+            "name": "IA1",
+            "type": "openai",
+            "position": [
+                600,
+                200
+            ],
+            "parameters": {
+                "operation": "transcribeRecording"
+            }
+        },
+        {
+            "id": "4",
+            "name": "WHATSAPP-IN",
+            "type": "webhook",
+            "position": [
+                200,
+                400
+            ],
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "whatsapp-in"
+            }
+        },
+        {
+            "id": "5",
+            "name": "IA-Message",
+            "type": "openai",
+            "position": [
+                400,
+                400
+            ],
+            "parameters": {
+                "operation": "messageAnalyzer"
+            }
+        },
+        {
+            "id": "6",
+            "name": "Airbnb-RunActors",
+            "type": "httpRequest",
+            "position": [
+                600,
+                400
+            ],
+            "parameters": {
+                "url": "https://api.apify.com/v2/acts/airbnb",
+                "method": "POST"
+            }
+        },
+        {
+            "id": "7",
+            "name": "Airbnb-GetItems",
+            "type": "httpRequest",
+            "position": [
+                800,
+                400
+            ],
+            "parameters": {
+                "url": "https://api.apify.com/v2/datasets/{datasetId}/items",
+                "method": "GET"
+            }
+        },
+        {
+            "id": "8",
+            "name": "Limit",
+            "type": "limit",
+            "position": [
+                1000,
+                400
+            ],
+            "parameters": {
+                "maxItems": 5
+            }
+        },
+        {
+            "id": "9",
+            "name": "Code-Format",
+            "type": "function",
+            "position": [
+                200,
+                600
+            ],
+            "parameters": {
+                "functionCode": "return items;"
+            }
+        },
+        {
+            "id": "10",
+            "name": "Loop Over Items",
+            "type": "splitInBatches",
+            "position": [
+                400,
+                600
+            ],
+            "parameters": {
+                "batchSize": 1
+            }
+        },
+        {
+            "id": "11",
+            "name": "HTTP Request",
+            "type": "httpRequest",
+            "position": [
+                600,
+                600
+            ],
+            "parameters": {
+                "url": "https://example.com/endpoint",
+                "method": "POST"
+            }
+        },
+        {
+            "id": "12",
+            "name": "Extract from File",
+            "type": "moveBinaryData",
+            "position": [
+                800,
+                600
+            ],
+            "parameters": {
+                "operation": "binaryToJson"
+            }
+        },
+        {
+            "id": "13",
+            "name": "WHATSAPP-OUT",
+            "type": "httpRequest",
+            "position": [
+                1000,
+                600
+            ],
+            "parameters": {
+                "url": "https://graph.facebook.com/v17.0/{PHONE_ID}/messages",
+                "method": "POST",
+                "authentication": "oAuth2"
+            }
+        }
+    ],
+    "connections": {
+        "CONVERTIR": {
+            "main": [
+                [
+                    "CODE"
+                ]
+            ]
+        },
+        "CODE": {
+            "main": [
+                [
+                    "IA1"
+                ]
+            ]
+        },
+        "IA1": {
+            "main": []
+        },
+        "WHATSAPP-IN": {
+            "main": [
+                [
+                    "IA-Message"
+                ]
+            ]
+        },
+        "IA-Message": {
+            "main": [
+                [
+                    "Airbnb-RunActors"
+                ]
+            ]
+        },
+        "Airbnb-RunActors": {
+            "main": [
+                [
+                    "Airbnb-GetItems"
+                ]
+            ]
+        },
+        "Airbnb-GetItems": {
+            "main": [
+                [
+                    "Limit"
+                ]
+            ]
+        },
+        "Limit": {
+            "main": [
+                [
+                    "Code-Format"
+                ]
+            ]
+        },
+        "Code-Format": {
+            "main": [
+                [
+                    "Loop Over Items"
+                ]
+            ]
+        },
+        "Loop Over Items": {
+            "main": [
+                [
+                    "HTTP Request"
+                ]
+            ]
+        },
+        "HTTP Request": {
+            "main": [
+                [
+                    "Extract from File"
+                ]
+            ]
+        },
+        "Extract from File": {
+            "main": [
+                [
+                    "WHATSAPP-OUT"
+                ]
+            ]
+        }
+    }
+}

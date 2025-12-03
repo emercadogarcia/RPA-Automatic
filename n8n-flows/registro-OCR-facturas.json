@@ -1,0 +1,208 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "webhookId": "webhook",
+        "authentication": "token",
+        "botId": {
+          "__node_remap__": {
+            "id": "telegramApi",
+            "name": "Telegram API"
+          }
+        },
+        "listenTo": "messageWithPhoto"
+      },
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        280,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/bot{{ $connections.telegramApi.accessToken }}/getFile?file_id={{ $json.message.photo[0].file_id }}",
+        "responseFormat": "file",
+        "options": {}
+      },
+      "name": "HTTP Request: Get File Path",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        500,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/file/bot{{ $connections.telegramApi.accessToken }}/{{ $json.file_path }}",
+        "responseFormat": "file",
+        "binaryPropertyName": "image_binary",
+        "options": {}
+      },
+      "name": "HTTP Request: Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        720,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "serviceAccount": {
+          "__node_remap__": {
+            "id": "googleCloudVisionServiceAccount",
+            "name": "Google Cloud Vision Service Account"
+          }
+        },
+        "resource": "image",
+        "operation": "detectText",
+        "imageSource": "binaryData",
+        "binaryPropertyName": "image_binary",
+        "detectionType": "documentTextDetection"
+      },
+      "name": "Google Cloud Vision",
+      "type": "n8n-nodes-base.googleCloudVision",
+      "typeVersion": 1,
+      "position": [
+        940,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const items = [];\n\nfor (const item of $input.all()) {\n  const fullText = item.json.fullTextAnnotation.text;\n\n  let nit = '';\n  let razonSocial = '';\n  let montoTotal = '';\n  let fechaFactura = '';\n\n  // --- Lógica para extraer campos específicos --- \n  // IMPORTANTE: Ajusta estas expresiones regulares para que coincidan con tus facturas\n\n  // NIT (ejemplo: busca 'NIT:' seguido de números)\n  const nitMatch = fullText.match(/NIT:\\s*(\\d+)/);\n  if (nitMatch) {\n    nit = nitMatch[1];\n  }\n\n  // Razón Social (ejemplo: busca 'RAZON SOCIAL:' seguido de texto hasta una nueva línea)\n  const razonSocialMatch = fullText.match(/RAZON SOCIAL:\\s*([^\\n]+)/i);\n  if (razonSocialMatch) {\n    razonSocial = razonSocialMatch[1].trim();\n  }\n\n  // Monto Total (ejemplo: busca 'MONTO TOTAL A PAGAR Bs' seguido de un número con decimales)\n  const montoTotalMatch = fullText.match(/MONTO TOTAL A PAGAR Bs\\s*([\\d\\.,]+)/i);\n  if (montoTotalMatch) {\n    // Reemplazar coma por punto para decimales y parsear a float\n    montoTotal = parseFloat(montoTotalMatch[1].replace(',', '.')) || 0;\n  }\n\n  // Fecha de Emisión (ejemplo: busca un patrón de fecha DD/MM/AAAA)\n  const fechaMatch = fullText.match(/FECHA EMISIÓN:\\s*(\\d{2}\\/\\d{2}\\/\\d{4})/);\n  if (fechaMatch) {\n    fechaFactura = fechaMatch[1];\n  }\n\n  // Puedes agregar más extracciones aquí según sea necesario\n\n  items.push({\n    json: {\n      fullText: fullText,\n      nit: nit,\n      razonSocial: razonSocial,\n      montoTotal: montoTotal,\n      fechaFactura: fechaFactura\n    }\n  });\n}\n\nreturn items;\n"
+      },
+      "name": "Code: Extract Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1160,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "googleServiceAccount",
+        "googleServiceAccount": {
+          "__node_remap__": {
+            "id": "googleSheetsServiceAccount",
+            "name": "Google Sheets Service Account"
+          }
+        },
+        "resource": "sheet",
+        "operation": "appendRow",
+        "spreadsheetId": "TU_SPREADSHEET_ID_DE_GOOGLE_SHEETS",
+        "sheetName": "NOMBRE_DE_TU_HOJA",
+        "dataToAppend": {
+          "NIT": "={{ $json.nit }}",
+          "Razon Social": "={{ $json.razonSocial }}",
+          "Monto Total": "={{ $json.montoTotal }}",
+          "Fecha de Factura": "={{ $json.fechaFactura }}",
+          "Texto Completo": "={{ $json.fullText }}"
+        },
+        "options": {}
+      },
+      "name": "Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        1380,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "token",
+        "botId": {
+          "__node_remap__": {
+            "id": "telegramApi",
+            "name": "Telegram API"
+          }
+        },
+        "resource": "message",
+        "operation": "send",
+        "chatId": "TU_CHAT_ID_DE_TELEGRAM",
+        "text": "🎉 ¡Factura procesada con éxito! 🎉\n\n*NIT:* `{{ $json.nit }}`\n*Razón Social:* `{{ $json.razonSocial }}`\n*Monto Total:* `{{ $json.montoTotal }} Bs.`\n*Fecha:* `{{ $json.fechaFactura }}`\n\n_Datos guardados en Google Sheets._",
+        "parseMode": "MarkdownV2"
+      },
+      "name": "Telegram: Send Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        340
+      ]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request: Get File Path",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "HTTP Request: Get File Path": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request: Download Image",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "HTTP Request: Download Image": {
+      "main": [
+        [
+          {
+            "node": "Google Cloud Vision",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Google Cloud Vision": {
+      "main": [
+        [
+          {
+            "node": "Code: Extract Data",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Code: Extract Data": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Send Notification",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "id": "ocr_telegram_sheets_flow",
+  "name": "OCR Telegram a Google Sheets",
+  "timezone": "America/La_Paz"
+}
