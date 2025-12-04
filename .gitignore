@@ -16,16 +16,6 @@ _site/
 # counterproductive to check this file into the repository.
 # Details at https://github.com/github/pages-gem/issues/768
 Gemfile.lock
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-=======
-
->>>>>>> f6b770f (añadiendo .gitinore)
 
 # archivos que no se incluye
 Creacion-flujo-telegram.md
@@ -37,7 +27,3 @@ apikey/
 
 <<<<<<< HEAD
 # cambios aplicados.
->>>>>>> 9e47da3 (actualizacion datos)
->>>>>>> 479ca33 (primer commit)
-=======
->>>>>>> f6b770f (añadiendo .gitinore)
