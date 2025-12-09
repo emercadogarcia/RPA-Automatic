@@ -1,0 +1,7 @@
+// herrmaienta:    https://reqbin.com/
+// POST:  https://devemercado.app.n8n.cloud/webhook-test/consulta
+
+{ 
+    "usuario": "dev.emercado@gmail.com" ,
+    "mensaje": "Se solicita que se cree una nueva carpeta para guardar datos clientes" 
+}
