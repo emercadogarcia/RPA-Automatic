@@ -7,6 +7,6 @@
 {{ $json.mensaje }}
 {{ $json.prioridad }}
 
-
+{{ $('Filter').item.json.usuario}}
 
 
